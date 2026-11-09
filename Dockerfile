@@ -14,7 +14,7 @@
 #
 # Each patch is asserted in the build, so an upstream rename fails the build
 # rather than the deployment.
-FROM bigcapitalhq/server:v0.25.41
+FROM bigcapitalhq/server:v0.25.44
 
 USER root
 WORKDIR /app/packages/server
