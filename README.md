@@ -44,3 +44,25 @@ from one monorepo and are expected to move in lockstep.
 ## Licence
 
 Bigcapital is AGPL-3.0. This repository only carries deployment glue.
+
+## Workspace delete fix (patches/, webapp/)
+
+Upstream v0.25.44 deletes a workspace by dropping its tenant database first and
+then deleting the `tenants` row. Several system tables (`api_keys`, `imports`,
+`plaid_items`, `user_invites`, `subscription_plan_subscriptions`, and
+`users.tenant_id`) reference `tenants.id` without `ON DELETE CASCADE`, so any
+workspace with an API key fails at the second step and is left listed, flagged
+`is_deleting`, with its data already gone.
+
+- **Server** (`patches/server/DeleteWorkspace.service.js`, copied over the
+  compiled file in the `Dockerfile`, pinned by hash): in one transaction it
+  removes those child rows, clears users' legacy/default pointers, deletes the
+  tenant row, and only then drops the database. Any failure rolls back, keeps
+  the data, and clears `is_deleting` so the owner can retry. The delete
+  pre-checks also get readable messages.
+- **Webapp** (`webapp/`, a separate image built from that directory): the
+  Delete Workspace dialog read `error.response.data` (axios), but this build's
+  API client throws errors with the body on `error.data`, so it always showed
+  "Cannot delete workspace". The compiled bundle is patched to read either.
+
+Tests: `cd test && npm install && npm test` (they fail against the stock file).
